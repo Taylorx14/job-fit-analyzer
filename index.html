@@ -1,0 +1,109 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Job Fit Analyzer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f5f9;
+      color: #202938;
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 3px 15px #00000012;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 12px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font: inherit;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+    .result {
+      padding: 12px;
+      margin-top: 10px;
+      background: #f3f5f9;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Job Fit Analyzer</h1>
+    <p>Paste a job description to check how well it fits your preferences.</p>
+
+    <textarea id="job" placeholder="Paste job listing here..."></textarea>
+    <button onclick="analyze()">Analyze Job</button>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    function analyze() {
+      const text = document.getElementById("job").value.toLowerCase();
+      const results = document.getElementById("results");
+
+      if (!text.trim()) {
+        results.innerHTML = "<p>Please paste a job description first.</p>";
+        return;
+      }
+
+      const checks = [
+        {
+          label: "Remote work mentioned",
+          match: /\b(remote|work from home|telework)\b/.test(text)
+        },
+        {
+          label: "Insurance experience relevant",
+          match: /\b(insurance|claims|benefits|medicare)\b/.test(text)
+        },
+        {
+          label: "Potential sales requirements",
+          match: /\b(commission|cold calling|prospecting|sales quota)\b/.test(text),
+          warning: true
+        },
+        {
+          label: "Salary of $50,000+ mentioned",
+          match: /\$\s?(5[0-9],\d{3}|[6-9]\d,\d{3}|1\d{2},\d{3})\b/.test(text)
+        }
+      ];
+
+      results.innerHTML = "<h2>Analysis Results</h2>";
+
+      checks.forEach(check => {
+        const symbol = check.warning
+          ? (check.match ? "⚠️" : "✓")
+          : (check.match ? "✓" : "—");
+
+        const div = document.createElement("div");
+        div.className = "result";
+        div.textContent = symbol + " " + check.label;
+        results.appendChild(div);
+      });
+
+      const note = document.createElement("p");
+      note.textContent = "Note: This is a basic keyword analyzer, not AI yet. Missing keywords do not necessarily mean a job is unsuitable.";
+      results.appendChild(note);
+    }
+  </script>
+</body>
+</html>
