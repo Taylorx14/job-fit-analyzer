@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,49 +5,156 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Job Fit Analyzer</title>
   <style>
+    :root {
+      --bg: #f3f5f9;
+      --panel: #ffffff;
+      --panel-alt: #f3f5f9;
+      --text: #202938;
+      --muted: #52607a;
+      --border: #d9e0ec;
+      --button: #2563eb;
+      --button-hover: #1d4ed8;
+      --success: #1a8f5a;
+      --warning: #b45309;
+      --danger: #b91c1c;
+      --info: #475569;
+      --shadow: rgba(0, 0, 0, 0.08);
+    }
+
+    body.dark {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-alt: #1f2937;
+      --text: #e5e7eb;
+      --muted: #cbd5e1;
+      --border: #334155;
+      --button: #3b82f6;
+      --button-hover: #2563eb;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --info: #cbd5e1;
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: Arial, sans-serif;
-      background: #f3f5f9;
-      color: #202938;
+      background: var(--bg);
+      color: var(--text);
       max-width: 760px;
       margin: 40px auto;
       padding: 20px;
+      transition: background 0.2s ease, color 0.2s ease;
     }
+
     .card {
-      background: white;
+      background: var(--panel);
       padding: 25px;
       border-radius: 12px;
-      box-shadow: 0 3px 15px #00000012;
+      box-shadow: 0 3px 15px var(--shadow);
+      border: 1px solid var(--border);
     }
+
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0;
+    }
+
+    .theme-toggle {
+      background: var(--panel-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
     textarea {
       width: 100%;
-      height: 200px;
+      min-height: 200px;
       padding: 12px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
+      border: 1px solid var(--border);
       border-radius: 8px;
       font: inherit;
+      background: var(--panel-alt);
+      color: var(--text);
+      resize: vertical;
     }
+
     button {
-      background: #2563eb;
+      background: var(--button);
       color: white;
       border: none;
       border-radius: 8px;
       padding: 12px 20px;
       margin-top: 15px;
       cursor: pointer;
+      transition: background 0.2s ease;
     }
+
+    button:hover {
+      background: var(--button-hover);
+    }
+
     .result {
       padding: 12px;
       margin-top: 10px;
-      background: #f3f5f9;
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
       border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    .result strong {
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .status-ok {
+      color: var(--success);
+    }
+
+    .status-warning {
+      color: var(--warning);
+    }
+
+    .status-danger {
+      color: var(--danger);
+    }
+
+    .status-info {
+      color: var(--info);
+    }
+
+    .result-list {
+      margin-top: 10px;
+    }
+
+    .small-note {
+      color: var(--muted);
+      font-size: 0.95em;
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Job Fit Analyzer</h1>
+    <div class="top-row">
+      <h1>Job Fit Analyzer</h1>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">🌙 Dark mode</button>
+    </div>
+
     <p>Paste a job description to check how well it fits your preferences.</p>
 
     <textarea id="job" placeholder="Paste job listing here..."></textarea>
@@ -58,6 +164,229 @@
   </div>
 
   <script>
+    const THEME_KEY = "job-fit-theme";
+    const themeToggle = document.getElementById("themeToggle");
+
+    function applyTheme(theme) {
+      const isDark = theme === "dark";
+      document.body.classList.toggle("dark", isDark);
+      themeToggle.textContent = isDark ? "☀️ Light mode" : "🌙 Dark mode";
+      localStorage.setItem(THEME_KEY, theme);
+    }
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme === "dark") {
+        applyTheme("dark");
+      } else {
+        applyTheme("light");
+      }
+    }
+
+    themeToggle.addEventListener("click", () => {
+      const isDark = document.body.classList.contains("dark");
+      applyTheme(isDark ? "light" : "dark");
+    });
+
+    initTheme();
+
+    function formatMoney(value) {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0
+      }).format(value);
+    }
+
+    function annualizeSalary(rawText) {
+      const text = rawText.toLowerCase();
+
+      let annualEquivalent = null;
+      let sourceLabel = "salary";
+      let foundText = "";
+
+      const salaryPatterns = [
+        /(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:\/\s*(?:hr|hour|hours|h)))/gi,
+        /(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:per\s*hour|per\s*hr|an\s*hour))/gi,
+        /(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:\/\s*(?:mo|month|months|m)))/gi,
+        /(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:per\s*month|monthly))/gi,
+        /(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:\/\s*(?:yr|year|years|annum)))/gi,
+        /(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:per\s*year|annual|annually))/gi
+      ];
+
+      for (const pattern of salaryPatterns) {
+        const matches = text.match(pattern);
+        if (matches && matches.length) {
+          foundText = matches[0];
+          break;
+        }
+      }
+
+      if (!foundText) {
+        return null;
+      }
+
+      const rangeMatch = text.match(/(\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?\s*(?:-\s*|\s*to\s*|\s*–\s*|\s*-\s*)\s*\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)(?:\s*(?:\/\s*(?:hr|hour|hours|h)|\/\s*(?:mo|month|months|m)|\/\s*(?:yr|year|years)|per\s*hour|per\s*month|per\s*year|annual|annually|monthly|yearly))?/gi);
+
+      if (rangeMatch && rangeMatch.length) {
+        const rangeText = rangeMatch[0];
+        const nums = rangeText.match(/\d[\d,]*(?:\.\d+)?/g);
+
+        if (nums && nums.length >= 2) {
+          const values = nums.map(n => Number(n.replace(/,/g, "")));
+
+          const minValue = Math.min(...values);
+          const maxValue = Math.max(...values);
+
+          if (rangeText.toLowerCase().includes("hour") || rangeText.toLowerCase().includes("/h") || rangeText.toLowerCase().includes("per hour")) {
+            annualEquivalent = {
+              min: minValue * 2080,
+              max: maxValue * 2080
+            };
+            sourceLabel = "hourly range";
+          } else if (rangeText.toLowerCase().includes("month") || rangeText.toLowerCase().includes("/mo") || rangeText.toLowerCase().includes("per month")) {
+            annualEquivalent = {
+              min: minValue * 12,
+              max: maxValue * 12
+            };
+            sourceLabel = "monthly range";
+          } else {
+            annualEquivalent = {
+              min: minValue,
+              max: maxValue
+            };
+            sourceLabel = "annual range";
+          }
+
+          return { annualEquivalent, sourceLabel, foundText: rangeText };
+        }
+      }
+
+      const numMatch = foundText.match(/\d[\d,]*(?:\.\d+)?/g);
+      if (!numMatch || !numMatch.length) {
+        return null;
+      }
+
+      const value = Number(numMatch[0].replace(/,/g, ""));
+
+      if (foundText.toLowerCase().includes("hour") || foundText.toLowerCase().includes("/h") || foundText.toLowerCase().includes("per hour")) {
+        annualEquivalent = value * 2080;
+        sourceLabel = "hourly pay";
+      } else if (foundText.toLowerCase().includes("month") || foundText.toLowerCase().includes("/mo") || foundText.toLowerCase().includes("per month")) {
+        annualEquivalent = value * 12;
+        sourceLabel = "monthly pay";
+      } else {
+        annualEquivalent = value;
+        sourceLabel = "annual pay";
+      }
+
+      return { annualEquivalent, sourceLabel, foundText };
+    }
+
+    function getWorkLocationStatus(text) {
+      const lower = text.toLowerCase();
+
+      const negativePatterns = [
+        /\bnot\s+available\b/,
+        /\bnot\s+offered\b/,
+        /\bno\s+remote\b/,
+        /\bno\s+hybrid\b/,
+        /\bnot\s+remote\b/,
+        /\bnot\s+hybrid\b/,
+        /\bnot\s+onsite\b/,
+        /\bnot\s+on-site\b/,
+        /\bnot\s+in-office\b/,
+        /\bnot\s+in\s+office\b/
+      ];
+
+      const remotePatterns = [
+        /\bremote\b/,
+        /\bwork\s+from\s+home\b/,
+        /\btelecommute\b/,
+        /\bfully\s+remote\b/
+      ];
+
+      const hybridPatterns = [
+        /\bhybrid\b/,
+        /\bpartially\s+remote\b/,
+        /\b3\s*\/\s*2\b/,
+        /\b2\s*\/\s*3\b/,
+        /\bmix\s+of\s+remote\s+and\s+onsite\b/,
+        /\bremote\s+and\s+office\b/
+      ];
+
+      const onSitePatterns = [
+        /\bon-site\b/,
+        /\bonsite\b/,
+        /\bin-office\b/,
+        /\bin\s+office\b/,
+        /\bonsite\b/,
+        /\boffice-based\b/,
+        /\bwork\s+from\s+the\s+office\b/,
+        /\bmust\s+relocate\b/,
+        /\brelocation\b/
+      ];
+
+      const hasNegative = negativePatterns.some(pattern => pattern.test(lower));
+      const hasRemote = remotePatterns.some(pattern => pattern.test(lower));
+      const hasHybrid = hybridPatterns.some(pattern => pattern.test(lower));
+      const hasOnSite = onSitePatterns.some(pattern => pattern.test(lower));
+
+      if (hasNegative && (hasRemote || hasHybrid || hasOnSite)) {
+        return {
+          label: "Needs verification",
+          detail: "The job mentions a work setup, but the wording is mixed or contradictory."
+        };
+      }
+
+      if (hasRemote && !hasHybrid && !hasOnSite) {
+        return {
+          label: "Remote",
+          detail: "The listing clearly indicates remote work."
+        };
+      }
+
+      if (hasHybrid && !hasRemote && !hasOnSite) {
+        return {
+          label: "Hybrid",
+          detail: "The listing clearly indicates a hybrid schedule."
+        };
+      }
+
+      if (hasOnSite && !hasRemote && !hasHybrid) {
+        return {
+          label: "On-site",
+          detail: "The listing clearly indicates an on-site role."
+        };
+      }
+
+      if (hasRemote && hasHybrid) {
+        return {
+          label: "Needs verification",
+          detail: "The job text mentions both remote and hybrid arrangements."
+        };
+      }
+
+      if (hasHybrid && hasOnSite) {
+        return {
+          label: "Needs verification",
+          detail: "The job text mentions both hybrid and on-site arrangements."
+        };
+      }
+
+      if (hasRemote && hasOnSite) {
+        return {
+          label: "Needs verification",
+          detail: "The job text mentions both remote and on-site arrangements."
+        };
+      }
+
+      return {
+        label: "Needs verification",
+        detail: "No clear work arrangement was found."
+      };
+    }
+
     function analyze() {
       const text = document.getElementById("job").value.toLowerCase();
       const results = document.getElementById("results");
@@ -67,41 +396,95 @@
         return;
       }
 
-      const checks = [
-        {
-          label: "Remote work mentioned",
-          match: /\b(remote|work from home|telework)\b/.test(text)
-        },
-        {
-          label: "Insurance experience relevant",
-          match: /\b(insurance|claims|benefits|medicare)\b/.test(text)
-        },
-        {
-          label: "Potential sales requirements",
-          match: /\b(commission|cold calling|prospecting|sales quota)\b/.test(text),
-          warning: true
-        },
-        {
-          label: "Salary of $50,000+ mentioned",
-          match: /\$\s?(5[0-9],\d{3}|[6-9]\d,\d{3}|1\d{2},\d{3})\b/.test(text)
-        }
-      ];
+      const checkResults = [];
 
-      results.innerHTML = "<h2>Analysis Results</h2>";
+      const workLocation = getWorkLocationStatus(text);
+      checkResults.push({
+        label: "Work arrangement",
+        value: workLocation.label,
+        detail: workLocation.detail,
+        status: workLocation.label === "Remote" ? "ok" : workLocation.label === "Hybrid" ? "warning" : workLocation.label === "On-site" ? "info" : "warning"
+      });
 
-      checks.forEach(check => {
-        const symbol = check.warning
-          ? (check.match ? "⚠️" : "✓")
-          : (check.match ? "✓" : "—");
+      const insuranceMatch = /\b(insurance|claims|benefits|medicare|underwriting|policyholder)\b/.test(text);
+      checkResults.push({
+        label: "Insurance experience relevant",
+        value: insuranceMatch ? "Yes" : "No",
+        detail: insuranceMatch ? "The description mentions insurance-related work." : "No insurance-related keywords were found.",
+        status: insuranceMatch ? "ok" : "info"
+      });
 
-        const div = document.createElement("div");
-        div.className = "result";
-        div.textContent = symbol + " " + check.label;
-        results.appendChild(div);
+      const salesMatch = /\b(commission|cold calling|prospecting|sales quota|account executive|business development)\b/.test(text);
+      checkResults.push({
+        label: "Potential sales requirements",
+        value: salesMatch ? "Possible concern" : "No strong signal",
+        detail: salesMatch ? "This listing may involve sales generation or quota pressure." : "No major sales-related signals were found.",
+        status: salesMatch ? "warning" : "info"
+      });
+
+      const salaryData = annualizeSalary(text);
+      if (salaryData) {
+        const annualMin = typeof salaryData.annualEquivalent === "object"
+          ? salaryData.annualEquivalent.min
+          : salaryData.annualEquivalent;
+
+        const annualMax = typeof salaryData.annualEquivalent === "object"
+          ? salaryData.annualEquivalent.max
+          : salaryData.annualEquivalent;
+
+        const salarySentence = typeof salaryData.annualEquivalent === "object"
+          ? `${formatMoney(annualMin)} to ${formatMoney(annualMax)} per year`
+          : `${formatMoney(annualMax)} per year`;
+
+        checkResults.push({
+          label: "Salary found",
+          value: salarySentence,
+          detail: `Detected ${salaryData.sourceLabel}.`,
+          status: annualMin >= 50000 ? "ok" : "warning"
+        });
+      } else {
+        checkResults.push({
+          label: "Salary found",
+          value: "No clear salary",
+          detail: "No hourly, monthly, or annual salary pattern was detected.",
+          status: "info"
+        });
+      }
+
+      const salaryThreshold = /\$\s?(5[0-9],\d{3}|[6-9]\d,\d{3}|1\d{2},\d{3})\b/.test(text);
+      checkResults.push({
+        label: "Salary of $50,000+ mentioned",
+        value: salaryThreshold ? "Yes" : "No",
+        detail: salaryThreshold ? "A salary above $50k appears in the listing." : "No $50k+ salary was found in this text.",
+        status: salaryThreshold ? "ok" : "info"
+      });
+
+      results.innerHTML = "<h2>Analysis Results</h2><div class='result-list'></div>";
+      const list = results.querySelector(".result-list");
+
+      checkResults.forEach(check => {
+        const row = document.createElement("div");
+        row.className = "result";
+
+        const symbol = {
+          ok: "✓",
+          warning: "⚠️",
+          info: "—",
+          danger: "✕"
+        }[check.status] || "—";
+
+        row.innerHTML = `
+          <strong class="${check.status === 'ok' ? 'status-ok' : check.status === 'warning' ? 'status-warning' : check.status === 'danger' ? 'status-danger' : 'status-info'}">${symbol}</strong>
+          <strong>${check.label}:</strong> ${check.value}<br>
+          <span class="small-note">${check.detail}</span>
+        `;
+
+        list.appendChild(row);
       });
 
       const note = document.createElement("p");
-      note.textContent = "Note: This is a basic keyword analyzer, not AI yet. Missing keywords do not necessarily mean a job is unsuitable.";
+      note.className = "small-note";
+      note.textContent = "Note: This is a basic keyword analyzer. Missing keywords do not necessarily mean a job is unsuitable.";
       results.appendChild(note);
     }
   </script>
